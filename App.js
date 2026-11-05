@@ -19,10 +19,12 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 
 import { taskStorage } from './src/services/taskStorage';
 import { SearchBar } from './src/components/common/SearchBar';
+import { Icon } from './src/components/common/Icon';
 import { AddTaskModal } from './src/components/modals/AddTaskModal';
 import { AddStoryModal } from './src/components/modals/AddStoryModal';
 import { StoryViewerModal } from './src/components/modals/StoryViewerModal';
@@ -47,6 +49,7 @@ import {
 } from './src/services/firestoreService';
 import { updateUserProfile, signOutUser } from './src/services/authService';
 import { AIChatModal } from './src/components/modals/AIChatModal';
+import { AdminDashboardModal } from './src/components/modals/AdminDashboardModal';
 import { useFeedBriefing } from './src/hooks/useFeedBriefing';
 import { useFeedChat } from './src/hooks/useFeedChat';
 
@@ -67,6 +70,8 @@ export default function App() {
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [logoTapCount, setLogoTapCount] = useState(0);
 
   // Almanac Guide Steps 6, 7 & 8: AI Briefing and Chat hooks
   const briefingHook = useFeedBriefing(posts, stories, user);
@@ -91,6 +96,37 @@ export default function App() {
     setTimeout(() => {
       setToastMessage('');
     }, 3000);
+  };
+
+  const refreshFirestoreData = async () => {
+    try {
+      const firestorePosts = await getAllPosts();
+      if (firestorePosts && firestorePosts.length > 0) {
+        setPosts(firestorePosts);
+      }
+    } catch (e) {
+      // offline fallback
+    }
+    try {
+      const firestoreStories = await getAllStories();
+      if (firestoreStories && firestoreStories.length > 0) {
+        setStories(firestoreStories);
+      }
+    } catch (e) {
+      // offline fallback
+    }
+  };
+
+  const handleLogoTap = () => {
+    setActiveScreen('feed');
+    const newCount = logoTapCount + 1;
+    if (newCount >= 5) {
+      setLogoTapCount(0);
+      setIsAdminOpen(true);
+    } else {
+      setLogoTapCount(newCount);
+      setTimeout(() => setLogoTapCount(0), 3000);
+    }
   };
 
   // Hydrate all persisted state on app startup
@@ -324,7 +360,7 @@ export default function App() {
         mediaType: postData.mediaType || 'image',
         category: postData.category || 'Work',
         completed: false,
-        reactions: { like: 0, love: 0 },
+        reactions: { like: 0, love: 0, laugh: 0, wow: 0, sad: 0, angry: 0 },
         shares: 0,
         userReaction: null,
         comments: [],
@@ -455,30 +491,38 @@ export default function App() {
 
   if (!user) {
     return (
-      <LoginPage
-        onLogin={(userData) => {
-          setUser(userData);
-          saveStoredUser(userData);
-          if (userData?.name) {
-            setPosts((previous) =>
-              previous.map((post) => {
-                if (
-                  post.author === userData.name ||
-                  post.author === 'You' ||
-                  post.author === 'Alex Morgan'
-                ) {
-                  return {
-                    ...post,
-                    author: userData.name,
-                    avatar: userData.avatar || post.avatar,
-                  };
-                }
-                return post;
-              })
-            );
-          }
-        }}
-      />
+      <View style={{ flex: 1 }}>
+        <LoginPage
+          onLogin={(userData) => {
+            setUser(userData);
+            saveStoredUser(userData);
+            if (userData?.name) {
+              setPosts((previous) =>
+                previous.map((post) => {
+                  if (
+                    post.author === userData.name ||
+                    post.author === 'You' ||
+                    post.author === 'Alex Morgan'
+                  ) {
+                    return {
+                      ...post,
+                      author: userData.name,
+                      avatar: userData.avatar || post.avatar,
+                    };
+                  }
+                  return post;
+                })
+              );
+            }
+          }}
+        />
+        <AdminDashboardModal
+          visible={isAdminOpen}
+          onClose={() => setIsAdminOpen(false)}
+          isDark={true}
+          onDataChanged={refreshFirestoreData}
+        />
+      </View>
     );
   }
 
@@ -500,7 +544,7 @@ export default function App() {
       {/* 1. Header: Facebook brand logo, mock search bar, and notification icons */}
       <View
         style={{
-          paddingTop: 44,
+          paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 44,
           paddingHorizontal: 16,
           paddingBottom: 8,
           backgroundColor: headerBg,
@@ -515,17 +559,19 @@ export default function App() {
             justifyContent: 'space-between',
           }}
         >
-          {/* Facebook brand logo */}
-          <Text
-            style={{
-              fontSize: 26,
-              fontWeight: '900',
-              color: '#1877F2',
-              letterSpacing: -1.2,
-            }}
-          >
-            facebook
-          </Text>
+          {/* Facebook brand logo (Tap 5x for Developer Admin) */}
+          <TouchableOpacity onPress={handleLogoTap} activeOpacity={0.8}>
+            <Text
+              style={{
+                fontSize: 26,
+                fontWeight: '900',
+                color: '#1877F2',
+                letterSpacing: -1.2,
+              }}
+            >
+              facebook
+            </Text>
+          </TouchableOpacity>
 
           {/* Action & Notification Icons */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -542,9 +588,7 @@ export default function App() {
                 marginRight: 8,
               }}
             >
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: textColor }}>
-                +
-              </Text>
+              <Icon name="plus" size={20} color={textColor} />
             </TouchableOpacity>
 
             {/* Notification Bell with Badge */}
@@ -561,7 +605,7 @@ export default function App() {
                 position: 'relative',
               }}
             >
-              <Text style={{ fontSize: 16 }}>🔔</Text>
+              <Icon name="bell" size={20} color={textColor} />
               <View
                 style={{
                   position: 'absolute',
@@ -600,9 +644,8 @@ export default function App() {
                 borderColor: '#1877F2',
               }}
             >
-              <Text style={{ fontSize: 16 }}>✨</Text>
+              <Icon name="sparkles" size={18} color="#1877F2" />
             </TouchableOpacity>
-
 
             {/* Dark / Light Toggle */}
             <TouchableOpacity
@@ -617,7 +660,7 @@ export default function App() {
                 marginRight: 8,
               }}
             >
-              <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
+              <Icon name={isDark ? 'sun' : 'moon'} size={18} color={textColor} />
             </TouchableOpacity>
 
             {/* Profile Avatar Quick Shortcut */}
@@ -635,10 +678,12 @@ export default function App() {
               <Image
                 source={{
                   uri:
-                    user?.avatar ||
-                    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
+                    user?.avatar && !user.avatar.startsWith('file://')
+                      ? user.avatar
+                      : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
                 }}
                 style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
               />
             </TouchableOpacity>
           </View>
@@ -665,10 +710,10 @@ export default function App() {
         }}
       >
         {[
-          { id: 'feed', icon: '🏠', label: 'Feed', isActive: isFeed },
-          { id: 'ai', icon: '✨', label: 'Meta AI', isActive: isAIChatOpen },
-          { id: 'profile', icon: '👤', label: 'Profile', isActive: isProfile },
-          { id: 'myPosts', icon: '📋', label: 'My Posts', isActive: isMyPosts },
+          { id: 'feed',    iconName: 'home',       label: 'Feed',     isActive: isFeed },
+          { id: 'ai',      iconName: 'sparkles',   label: 'Meta AI',  isActive: isAIChatOpen },
+          { id: 'profile', iconName: 'user',        label: 'Profile',  isActive: isProfile },
+          { id: 'myPosts', iconName: 'clipboard',  label: 'My Posts', isActive: isMyPosts },
         ].map((tab) => (
           <TouchableOpacity
             key={tab.id}
@@ -683,24 +728,38 @@ export default function App() {
               flex: 1,
               paddingVertical: 10,
               alignItems: 'center',
+              justifyContent: 'center',
               borderBottomWidth: tab.isActive ? 3 : 0,
               borderBottomColor: '#1877F2',
             }}
           >
-            {tab.id === 'profile' && user?.avatar ? (
-              <Image
-                source={{ uri: user.avatar }}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  borderWidth: tab.isActive ? 2 : 1,
-                  borderColor: tab.isActive ? '#1877F2' : subTextColor,
-                }}
-              />
-            ) : (
-              <Text style={{ fontSize: 20 }}>{tab.icon}</Text>
-            )}
+            {/* Fixed-size icon container so all tabs align at the same height */}
+            <View style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+              {tab.id === 'profile' && user?.avatar && !user.avatar.startsWith('file://') ? (
+                <View
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 13,
+                    overflow: 'hidden',
+                    borderWidth: tab.isActive ? 2 : 1,
+                    borderColor: tab.isActive ? '#1877F2' : subTextColor,
+                  }}
+                >
+                  <Image
+                    source={{ uri: user.avatar }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                </View>
+              ) : (
+                <Icon
+                  name={tab.iconName}
+                  size={24}
+                  color={tab.isActive ? '#1877F2' : subTextColor}
+                />
+              )}
+            </View>
             <Text
               style={{
                 fontSize: 11,
@@ -891,28 +950,29 @@ export default function App() {
                 Notifications
               </Text>
               <TouchableOpacity onPress={() => setShowNotificationsModal(false)}>
-                <Text style={{ fontSize: 16, color: subTextColor, fontWeight: 'bold' }}>
-                  ✕
-                </Text>
+                <Icon name="x" size={20} color={subTextColor} />
               </TouchableOpacity>
             </View>
 
             {[
               {
                 id: 1,
-                icon: '❤️',
+                iconName: 'heart',
+                iconColor: '#F02849',
                 text: 'Sarah Jenkins loved your post: "Just finished setting up our new dashboard!"',
                 time: '15m ago',
               },
               {
                 id: 2,
-                icon: '💬',
+                iconName: 'message-circle',
+                iconColor: '#1877F2',
                 text: 'David Chen commented: "Looks incredible! Fantastic work."',
                 time: '1h ago',
               },
               {
                 id: 3,
-                icon: '↗️',
+                iconName: 'share',
+                iconColor: '#10B981',
                 text: 'Maya Lin shared your post to her activity stream.',
                 time: '2h ago',
               },
@@ -938,7 +998,7 @@ export default function App() {
                     marginRight: 12,
                   }}
                 >
-                  <Text style={{ fontSize: 16 }}>{n.icon}</Text>
+                  <Icon name={n.iconName} size={20} color={n.iconColor} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 13, color: textColor, lineHeight: 18 }}>
@@ -960,6 +1020,14 @@ export default function App() {
         onClose={() => setIsAIChatOpen(false)}
         chat={chatHook}
         isDark={isDark}
+      />
+
+      {/* Mobile Developer Admin Dashboard Modal */}
+      <AdminDashboardModal
+        visible={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
+        isDark={isDark}
+        onDataChanged={refreshFirestoreData}
       />
     </View>
   );

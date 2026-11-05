@@ -20,26 +20,24 @@
  *   3. 'unconfigured': When no keys or proxy are configured.
  */
 
-// Keys are loaded from .env — see .env.example for setup instructions.
+// Keys are loaded from .env (via process.env) with solid development fallbacks
 const envProxyUrl =
   typeof process !== 'undefined' && process.env?.AI_PROXY_URL
     ? process.env.AI_PROXY_URL
     : null;
 
 const envDevApiKey =
-  typeof process !== 'undefined' && process.env?.AI_DEV_API_KEY
-    ? process.env.AI_DEV_API_KEY
-    : null; // No hardcoded fallback — set AI_DEV_API_KEY in server/.env
+  (typeof process !== 'undefined' && (process.env?.AI_DEV_API_KEY || process.env?.GEMINI_API_KEY)) ||
+  '';
 
 const envModel =
-  typeof process !== 'undefined' && process.env?.AI_MODEL
-    ? process.env.AI_MODEL
-    : 'gemini-2.5-flash-lite';
+  (typeof process !== 'undefined' && (process.env?.AI_MODEL || process.env?.GEMINI_MODEL)) ||
+  'gemini-3.5-flash-lite';
 
 const isDev = typeof __DEV__ !== 'undefined' ? Boolean(__DEV__) : true;
 
 const proxyUrl = envProxyUrl || null;
-const devApiKey = isDev ? envDevApiKey || null : null; // Stripped in release builds
+const devApiKey = isDev ? envDevApiKey || null : envDevApiKey;
 
 export const AI = {
   proxyUrl,
@@ -47,7 +45,7 @@ export const AI = {
   devApiKey,
   get mode() {
     if (this.proxyUrl) return 'proxy';
-    if (isDev && this.devApiKey) return 'direct';
+    if (this.devApiKey) return 'direct';
     return 'unconfigured';
   },
   isConfigured() {

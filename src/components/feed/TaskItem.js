@@ -4,11 +4,13 @@
 //
 // What this file does:
 // - Renders a full Facebook-style post card: author avatar, name, timestamp, content, and optional image.
-// - Provides react (like/love/haha/etc.), comment, share, delete, and edit action buttons.
+// - Provides a full Facebook-style reaction picker (Like/Love/Haha/Wow/Sad/Angry).
+//   · Tap the Like button  → toggles like on/off instantly.
+//   · Long-press Like       → opens the emoji reaction picker bubble above the button.
 // - Displays an inline comment thread with an input box to add new comments.
 // - Handles completion toggle so tasks can be marked done directly from the feed.
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,7 +21,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Animated,
 } from 'react-native';
+import { Icon } from '../common/Icon';
+
+// All 6 Facebook reactions — keep in sync with Firestore schema & web PostCard
+const REACTIONS = [
+  { type: 'like',  emoji: '👍', label: 'Like',  color: '#1877F2' },
+  { type: 'love',  emoji: '❤️', label: 'Love',  color: '#F02849' },
+  { type: 'laugh', emoji: '😂', label: 'Haha',  color: '#F59E0B' },
+  { type: 'wow',   emoji: '😮', label: 'Wow',   color: '#F59E0B' },
+  { type: 'sad',   emoji: '😢', label: 'Sad',   color: '#F59E0B' },
+  { type: 'angry', emoji: '😡', label: 'Angry', color: '#E41E3F' },
+];
 
 export const TaskItem = ({
   post,
@@ -36,6 +50,35 @@ export const TaskItem = ({
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const longPressTimer = useRef(null);
+
+  // ─── Long-press handler: open picker after 400 ms ───────────
+  const handleLikeButtonPressIn = () => {
+    longPressTimer.current = setTimeout(() => {
+      setShowReactionPicker(true);
+    }, 400);
+  };
+
+  const handleLikeButtonPressOut = () => {
+    clearTimeout(longPressTimer.current);
+  };
+
+  // ─── Tap: toggle current reaction / default to 'like' ───────
+  const handleLikeTap = () => {
+    if (showReactionPicker) {
+      setShowReactionPicker(false);
+      return;
+    }
+    const type = post.userReaction || 'like';
+    onReact(post.id, type);
+  };
+
+  // ─── Pick from picker ────────────────────────────────────────
+  const handlePickReaction = (type) => {
+    setShowReactionPicker(false);
+    onReact(post.id, type);
+  };
 
   const handleCommentSubmit = () => {
     if (!commentText.trim()) return;
@@ -172,9 +215,7 @@ export const TaskItem = ({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           style={{ padding: 6 }}
         >
-          <Text style={{ fontSize: 18, color: subTextColor, fontWeight: 'bold' }}>
-            ⋯
-          </Text>
+          <Icon name="more-horizontal" size={20} color={subTextColor} />
         </TouchableOpacity>
       </View>
 
@@ -231,6 +272,7 @@ export const TaskItem = ({
       ) : null}
 
       {/* Reactions & Stats Summary Bar */}
+      {/* Shows up to 3 unique reaction types that have a non-zero count */}
       <View
         style={{
           paddingHorizontal: 16,
@@ -241,34 +283,40 @@ export const TaskItem = ({
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 9,
-              backgroundColor: '#1877F2',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: -4,
-              zIndex: 2,
-            }}
-          >
-            <Text style={{ fontSize: 9 }}>👍</Text>
-          </View>
-          <View
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 9,
-              backgroundColor: '#FA3E3E',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 6,
-              zIndex: 1,
-            }}
-          >
-            <Text style={{ fontSize: 9 }}>❤️</Text>
-          </View>
+          {REACTIONS.filter((r) => (post.reactions?.[r.type] || 0) > 0)
+            .slice(0, 3)
+            .map((r, idx) => (
+              <View
+                key={r.type}
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: r.color,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: idx === 2 ? 6 : -4,
+                  zIndex: 3 - idx,
+                }}
+              >
+                <Text style={{ fontSize: 9 }}>{r.emoji}</Text>
+              </View>
+            ))}
+          {totalReactions === 0 && (
+            <View
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 9,
+                backgroundColor: isDark ? '#3A3B3C' : '#E4E6EB',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 6,
+              }}
+            >
+              <Text style={{ fontSize: 9 }}>👍</Text>
+            </View>
+          )}
           <Text style={{ fontSize: 12, color: subTextColor }}>
             {totalReactions > 0 ? totalReactions : 'Be the first to react'}
           </Text>
@@ -286,6 +334,80 @@ export const TaskItem = ({
         </View>
       </View>
 
+      {/* Reaction Picker Bubble — rendered as Modal so it escapes card's overflow:hidden */}
+      <Modal
+        visible={showReactionPicker}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowReactionPicker(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setShowReactionPicker(false)}
+          style={{ flex: 1 }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 100,
+              left: 16,
+              right: 16,
+              flexDirection: 'row',
+              justifyContent: 'space-evenly',
+              alignItems: 'center',
+              backgroundColor: isDark ? '#3A3B3C' : '#FFFFFF',
+              borderRadius: 32,
+              paddingVertical: 10,
+              paddingHorizontal: 8,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 20,
+              borderWidth: 1,
+              borderColor: isDark ? '#4E4F50' : '#E4E6EB',
+            }}
+          >
+            {REACTIONS.map((r) => (
+              <TouchableOpacity
+                key={r.type}
+                onPress={() => handlePickReaction(r.type)}
+                style={{ alignItems: 'center', paddingHorizontal: 4 }}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              >
+                <View
+                  style={{
+                    width: post.userReaction === r.type ? 46 : 40,
+                    height: post.userReaction === r.type ? 46 : 40,
+                    borderRadius: post.userReaction === r.type ? 23 : 20,
+                    backgroundColor:
+                      post.userReaction === r.type
+                        ? isDark ? '#4E4F50' : '#F0F2F5'
+                        : 'transparent',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: post.userReaction === r.type ? 26 : 22 }}>
+                    {r.emoji}
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontSize: 9,
+                    marginTop: 2,
+                    fontWeight: post.userReaction === r.type ? '700' : '500',
+                    color: post.userReaction === r.type ? r.color : subTextColor,
+                  }}
+                >
+                  {r.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Action Buttons Row (Like, Comment, Share) */}
       <View
         style={{
@@ -296,36 +418,45 @@ export const TaskItem = ({
           paddingHorizontal: 8,
         }}
       >
-        {/* Like Button */}
-        <TouchableOpacity
-          onPress={() => onReact(post.id, 'like')}
-          style={{
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingVertical: 8,
-            borderRadius: 6,
-          }}
-        >
-          <Text style={{ fontSize: 15, marginRight: 6 }}>
-            {post.userReaction === 'love' ? '❤️' : '👍'}
-          </Text>
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: '600',
-              color:
-                post.userReaction === 'like'
-                  ? '#1877F2'
-                  : post.userReaction === 'love'
-                  ? '#FA3E3E'
-                  : subTextColor,
-            }}
-          >
-            {post.userReaction === 'love' ? 'Love' : 'Like'}
-          </Text>
-        </TouchableOpacity>
+        {/* ── Like Button (tap = toggle, long-press = picker) ── */}
+        {(() => {
+          const current = REACTIONS.find((r) => r.type === post.userReaction);
+          return (
+            <TouchableOpacity
+              onPress={handleLikeTap}
+              onLongPress={() => setShowReactionPicker(true)}
+              onPressIn={handleLikeButtonPressIn}
+              onPressOut={handleLikeButtonPressOut}
+              delayLongPress={400}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 8,
+                borderRadius: 6,
+              }}
+            >
+              {/* Use emoji for the active reaction (keeps the visual feedback), SVG for default */}
+              {current ? (
+                <Text style={{ fontSize: 15, marginRight: 6 }}>{current.emoji}</Text>
+              ) : (
+                <View style={{ marginRight: 6 }}>
+                  <Icon name="thumbs-up" size={18} color={subTextColor} />
+                </View>
+              )}
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: current ? current.color : subTextColor,
+                }}
+              >
+                {current ? current.label : 'Like'}
+              </Text>
+            </TouchableOpacity>
+          );
+        })()}
 
         {/* Comment Button */}
         <TouchableOpacity
@@ -339,7 +470,9 @@ export const TaskItem = ({
             borderRadius: 6,
           }}
         >
-          <Text style={{ fontSize: 15, marginRight: 6 }}>💬</Text>
+          <View style={{ marginRight: 6 }}>
+            <Icon name="message-circle" size={18} color={subTextColor} />
+          </View>
           <Text style={{ fontSize: 13, fontWeight: '600', color: subTextColor }}>
             Comment
           </Text>
@@ -357,7 +490,9 @@ export const TaskItem = ({
             borderRadius: 6,
           }}
         >
-          <Text style={{ fontSize: 15, marginRight: 6 }}>↗️</Text>
+          <View style={{ marginRight: 6 }}>
+            <Icon name="share" size={18} color={subTextColor} />
+          </View>
           <Text style={{ fontSize: 13, fontWeight: '600', color: subTextColor }}>
             Share
           </Text>
@@ -409,7 +544,9 @@ export const TaskItem = ({
                   borderBottomColor: dividerColor,
                 }}
               >
-                <Text style={{ fontSize: 18, marginRight: 12 }}>✏️</Text>
+                <View style={{ width: 24, alignItems: 'center', marginRight: 12 }}>
+                  <Icon name="edit" size={20} color={textColor} />
+                </View>
                 <View>
                   <Text style={{ fontSize: 14, fontWeight: 'bold', color: textColor }}>
                     Edit Post
@@ -435,9 +572,9 @@ export const TaskItem = ({
                   borderBottomColor: dividerColor,
                 }}
               >
-                <Text style={{ fontSize: 18, marginRight: 12 }}>
-                  {post.completed ? '↩️' : '✅'}
-                </Text>
+                <View style={{ width: 24, alignItems: 'center', marginRight: 12 }}>
+                  <Icon name="check" size={20} color={post.completed ? '#F59E0B' : '#10B981'} />
+                </View>
                 <View>
                   <Text style={{ fontSize: 14, fontWeight: 'bold', color: textColor }}>
                     {post.completed ? 'Mark as Incomplete' : 'Mark as Done'}
@@ -461,7 +598,9 @@ export const TaskItem = ({
                   paddingVertical: 12,
                 }}
               >
-                <Text style={{ fontSize: 18, marginRight: 12 }}>🗑️</Text>
+                <View style={{ width: 24, alignItems: 'center', marginRight: 12 }}>
+                  <Icon name="trash" size={20} color="#EF4444" />
+                </View>
                 <View>
                   <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#EF4444' }}>
                     Delete Post
@@ -480,7 +619,9 @@ export const TaskItem = ({
                   paddingVertical: 12,
                 }}
               >
-                <Text style={{ fontSize: 18, marginRight: 12 }}>🔖</Text>
+                <View style={{ width: 24, alignItems: 'center', marginRight: 12 }}>
+                  <Icon name="bookmark" size={20} color={textColor} />
+                </View>
                 <View>
                   <Text style={{ fontSize: 14, fontWeight: 'bold', color: textColor }}>
                     Save Post

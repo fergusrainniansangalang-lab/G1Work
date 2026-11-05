@@ -130,7 +130,7 @@ export const createPost = async (postData, user) => {
     mediaType: postData.mediaType || 'image',
     category: postData.category || 'Work',
     completed: false,
-    reactions: { like: 0, love: 0, laugh: 0 },
+    reactions: { like: 0, love: 0, laugh: 0, wow: 0, sad: 0, angry: 0 },
     shares: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -280,9 +280,9 @@ export const reactToPost = async (postId, reactionType, userId) => {
   const isSame = oldReaction === reactionType;
   const newReaction = isSame ? null : reactionType;
 
-  // Add new reaction count
-  if (newReaction && reactions[newReaction] !== undefined) {
-    reactions[newReaction] += 1;
+  // Add new reaction count — use || 0 to handle legacy posts missing new reaction keys
+  if (newReaction) {
+    reactions[newReaction] = (reactions[newReaction] || 0) + 1;
   }
 
   // Batch write for atomicity
@@ -405,6 +405,33 @@ export const updateAuthorOnStories = async (userId, newName, newAvatar) => {
   });
 
   await batch.commit();
+};
+
+// ─── ADMIN OPERATIONS ───────────────────────────────────────
+
+/**
+ * Admin: Delete any post permanently from Firestore.
+ */
+export const adminDeletePost = async (postId) => {
+  const postRef = doc(db, 'posts', postId);
+  await deleteDoc(postRef);
+};
+
+/**
+ * Admin: Delete any story permanently from Firestore.
+ */
+export const adminDeleteStory = async (storyId) => {
+  const storyRef = doc(db, 'stories', storyId);
+  await deleteDoc(storyRef);
+};
+
+/**
+ * Admin: Fetch all registered users from Firestore.
+ */
+export const getAllUsers = async () => {
+  const usersRef = collection(db, 'users');
+  const snapshot = await getDocs(usersRef);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 };
 
 // ─── HELPERS ────────────────────────────────────────────────

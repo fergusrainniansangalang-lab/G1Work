@@ -6,6 +6,7 @@
 // - signUpUser()        — creates a new account with email and password.
 // - signInUser()        — authenticates an existing account.
 // - signOutUser()       — signs the current user out.
+// - resetPassword()     — sends password reset email to user's address.
 // - updateUserProfile() — updates displayName and photoURL in Firebase Auth.
 // - validateEmail()     — reusable email format checker used across the app.
 
@@ -18,6 +19,7 @@ import {
   signOut,
   updateProfile,
   onAuthStateChanged,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth } from './firebase';
 
@@ -185,4 +187,18 @@ export const getCurrentUser = () => {
     name: user.displayName || user.email.split('@')[0],
     avatar: user.photoURL || null,
   };
+};
+
+/**
+ * Send a password reset email via Firebase Authentication.
+ * @param {string} email
+ * @returns {Promise<void>}
+ */
+export const resetPassword = async (email) => {
+  const validation = validateEmail(email);
+  if (!validation.valid) {
+    throw new Error(validation.message);
+  }
+
+  await sendPasswordResetEmail(auth, email.trim());
 };

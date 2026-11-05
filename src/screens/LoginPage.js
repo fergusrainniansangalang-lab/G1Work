@@ -21,10 +21,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { FacebookCreateUser } from '../components/common/FacebookCreateUser';
 import { getRecentAccounts, saveRecentAccount, removeRecentAccount } from '../services/storage';
-import { validateEmail, signInUser } from '../services/authService';
+import { validateEmail, signInUser, resetPassword } from '../services/authService';
 
 export const LoginPage = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -34,6 +35,13 @@ export const LoginPage = ({ onLogin }) => {
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Forgotten password state
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [isForgotSubmitting, setIsForgotSubmitting] = useState(false);
 
   const [recentAccounts, setRecentAccounts] = useState([]);
 
@@ -96,6 +104,44 @@ export const LoginPage = ({ onLogin }) => {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOpenForgotModal = () => {
+    setForgotEmail(email.trim());
+    setForgotError('');
+    setForgotSuccess('');
+    setIsForgotModalOpen(true);
+  };
+
+  const handleForgotSubmit = async () => {
+    setForgotError('');
+    setForgotSuccess('');
+
+    if (!forgotEmail.trim()) {
+      setForgotError('Please enter your email address.');
+      return;
+    }
+
+    setIsForgotSubmitting(true);
+    try {
+      await resetPassword(forgotEmail.trim());
+      setForgotSuccess(
+        `A password reset link has been sent to ${forgotEmail.trim()}.\n\nPlease check your email inbox (or spam folder) and click the link to choose a new password.`
+      );
+    } catch (err) {
+      const msg = err.message || 'Failed to send password reset email.';
+      if (msg.includes('auth/user-not-found')) {
+        setForgotError('No account found with this email address.');
+      } else if (msg.includes('auth/invalid-email')) {
+        setForgotError('Please enter a valid email address.');
+      } else if (msg.includes('auth/too-many-requests')) {
+        setForgotError('Too many attempts. Please try again in a few minutes.');
+      } else {
+        setForgotError(msg);
+      }
+    } finally {
+      setIsForgotSubmitting(false);
     }
   };
 
@@ -540,10 +586,11 @@ export const LoginPage = ({ onLogin }) => {
 
           {/* Forgotten password */}
           <TouchableOpacity
-            onPress={() => setLoginError('Please use one of the quick accounts above or create a new user.')}
+            onPress={handleOpenForgotModal}
+            hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
             style={{ alignItems: 'center', marginVertical: 6 }}
           >
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#1877F2' }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1877F2' }}>
               Forgotten password?
             </Text>
           </TouchableOpacity>
@@ -593,8 +640,8 @@ export const LoginPage = ({ onLogin }) => {
       </View>
 
       {/* Footer Branding */}
-      <View style={{ paddingBottom: 16, alignItems: 'center' }}>
-        <Text style={{ fontSize: 11, color: '#6B7280' }}>
+      <View style={{ paddingBottom: 24, alignItems: 'center' }}>
+        <Text style={{ fontSize: 11, color: '#6B7280', marginBottom: 6 }}>
           Meta © 2026 • Facebook Original Flow
         </Text>
       </View>
@@ -607,6 +654,233 @@ export const LoginPage = ({ onLogin }) => {
         onSignUp={handleCreatedUser}
         isDark={true}
       />
+
+      {/* Facebook "Find Your Account" Password Reset Modal */}
+      <Modal
+        visible={isForgotModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsForgotModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.75)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 16,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              backgroundColor: '#242526',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#3E4042',
+              overflow: 'hidden',
+              elevation: 10,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.35,
+              shadowRadius: 10,
+            }}
+          >
+            {/* Header */}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: '#3E4042',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, marginRight: 8 }}>🔒</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF' }}>
+                  Find Your Account
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsForgotModalOpen(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  backgroundColor: '#3A3B3C',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 15, color: '#B0B3B8', fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Body */}
+            <View style={{ padding: 18 }}>
+              {forgotSuccess ? (
+                <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                  <View
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 25,
+                      backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 14,
+                    }}
+                  >
+                    <Text style={{ fontSize: 24 }}>✉️</Text>
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: '700',
+                      color: '#22C55E',
+                      marginBottom: 8,
+                      textAlign: 'center',
+                    }}
+                  >
+                    Reset Email Sent!
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: '#D1D5DB',
+                      lineHeight: 19,
+                      textAlign: 'center',
+                      marginBottom: 18,
+                    }}
+                  >
+                    {forgotSuccess}
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setIsForgotModalOpen(false);
+                      setForgotSuccess('');
+                    }}
+                    style={{
+                      width: '100%',
+                      paddingVertical: 12,
+                      backgroundColor: '#1877F2',
+                      borderRadius: 8,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>
+                      Back to Log In
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <Text style={{ fontSize: 13, color: '#D1D5DB', lineHeight: 18, marginBottom: 14 }}>
+                    Please enter your email address to search for your account and receive a link to change your password.
+                  </Text>
+
+                  <View
+                    style={{
+                      backgroundColor: '#3A3B3C',
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: forgotError ? '#EF4444' : '#4E4F50',
+                      paddingHorizontal: 12,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <TextInput
+                      placeholder="Email address (@gmail.com or @letran.edu.ph)"
+                      placeholderTextColor="#9CA3AF"
+                      value={forgotEmail}
+                      onChangeText={(val) => {
+                        setForgotEmail(val);
+                        if (forgotError) setForgotError('');
+                      }}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      autoCorrect={false}
+                      style={{
+                        paddingVertical: 12,
+                        fontSize: 14,
+                        color: '#FFFFFF',
+                      }}
+                    />
+                  </View>
+
+                  {forgotError ? (
+                    <View
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                        padding: 10,
+                        borderRadius: 6,
+                        borderLeftWidth: 3,
+                        borderLeftColor: '#EF4444',
+                        marginBottom: 14,
+                      }}
+                    >
+                      <Text style={{ color: '#F87171', fontSize: 12, lineHeight: 16 }}>
+                        ⚠️ {forgotError}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Action Buttons */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8, gap: 10 }}>
+                    <TouchableOpacity
+                      onPress={() => setIsForgotModalOpen(false)}
+                      disabled={isForgotSubmitting}
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 16,
+                        borderRadius: 6,
+                        backgroundColor: '#3A3B3C',
+                      }}
+                    >
+                      <Text style={{ color: '#D1D5DB', fontWeight: '600', fontSize: 13 }}>
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleForgotSubmit}
+                      disabled={isForgotSubmitting}
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 18,
+                        borderRadius: 6,
+                        backgroundColor: '#1877F2',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {isForgotSubmitting ? (
+                        <>
+                          <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 6 }} />
+                          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+                            Sending...
+                          </Text>
+                        </>
+                      ) : (
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+                          Send Link
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };

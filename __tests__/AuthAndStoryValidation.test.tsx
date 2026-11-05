@@ -1,4 +1,4 @@
-import { validateEmail } from '../src/services/authService';
+import { validateEmail, resetPassword } from '../src/services/authService';
 
 describe('Auth & Email Domain Validation', () => {
   it('accepts valid @gmail.com addresses', () => {
@@ -72,5 +72,21 @@ describe('Profile Isolation & Public Story / Post Logic', () => {
     expect(stories.length).toBe(2);
     expect(stories[0].authorId).toBe('user_a');
     expect(stories[1].authorId).toBe('user_b');
+  });
+
+  describe('Forgotten Password Flow', () => {
+    it('sends password reset email for valid address', async () => {
+      await expect(resetPassword('validuser@gmail.com')).resolves.not.toThrow();
+      await expect(resetPassword('student@letran.edu.ph')).resolves.not.toThrow();
+    });
+
+    it('rejects password reset for invalid or disallowed email domains', async () => {
+      await expect(resetPassword('hacker@unknown.com')).rejects.toThrow(
+        'Only @gmail.com and @letran.edu.ph email addresses are allowed.'
+      );
+      await expect(resetPassword('')).rejects.toThrow(
+        'Please enter your email address.'
+      );
+    });
   });
 });

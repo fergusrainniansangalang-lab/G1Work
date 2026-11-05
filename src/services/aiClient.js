@@ -161,7 +161,7 @@ export function streamMessage({
         };
       } else {
         // Direct Gemini API
-        const model = AI.model || 'gemini-2.5-flash-lite';
+        const model = AI.model || 'gemini-3.5-flash-lite';
         url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${AI.devApiKey}&alt=sse`;
         bodyData = {
           contents: toGeminiContents(messages),

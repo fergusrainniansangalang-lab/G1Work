@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { TaskItem } from '../components/feed/TaskItem';
 import { pickImageFromGallery, takePhotoWithCamera } from '../utils/imagePickerHelper';
+import { Icon } from '../components/common/Icon';
 
 const PREVIEW_PHOTOS = [
   'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400',
@@ -278,7 +279,9 @@ export const ProfileScreen = ({
               borderColor: 'rgba(255,255,255,0.2)',
             }}
           >
-            <Text style={{ fontSize: 13, marginRight: 4 }}>📷</Text>
+            <View style={{ marginRight: 4 }}>
+              <Icon name="camera" size={14} color="#FFFFFF" />
+            </View>
             <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: 'bold' }}>
               Edit Cover
             </Text>
@@ -329,7 +332,7 @@ export const ProfileScreen = ({
                 elevation: 4,
               }}
             >
-              <Text style={{ fontSize: 15 }}>📷</Text>
+              <Icon name="camera" size={16} color={textColor} />
             </TouchableOpacity>
           </View>
         </View>
@@ -475,13 +478,13 @@ export const ProfileScreen = ({
         </Text>
 
         {[
-          { icon: '💼', text: userDetails.work },
-          { icon: '🎓', text: userDetails.education },
-          { icon: '🏠', text: userDetails.city },
-          { icon: '📍', text: userDetails.hometown },
-          { icon: '❤️', text: userDetails.relationship },
-          { icon: '🕒', text: userDetails.joined },
-          { icon: '👥', text: userDetails.followers },
+          { iconName: 'briefcase', text: userDetails.work },
+          { iconName: 'graduation-cap', text: userDetails.education },
+          { iconName: 'home', text: userDetails.city },
+          { iconName: 'map-pin', text: userDetails.hometown },
+          { iconName: 'heart', text: userDetails.relationship, iconColor: '#EF4444' },
+          { iconName: 'clock', text: userDetails.joined },
+          { iconName: 'users', text: userDetails.followers },
         ].map((item, idx) => (
           <View
             key={idx}
@@ -491,7 +494,13 @@ export const ProfileScreen = ({
               marginBottom: 10,
             }}
           >
-            <Text style={{ fontSize: 16, width: 28 }}>{item.icon}</Text>
+            <View style={{ width: 24, alignItems: 'center', marginRight: 10 }}>
+              <Icon
+                name={item.iconName}
+                size={16}
+                color={item.iconColor || subTextColor}
+              />
+            </View>
             <Text style={{ fontSize: 13, color: textColor, flex: 1 }}>{item.text}</Text>
           </View>
         ))}

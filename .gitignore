@@ -81,3 +81,8 @@ server/.env
 !.yarn/versions
 .env 
 "**/.env" 
+
+# web build
+web/dist/
+web/.env
+

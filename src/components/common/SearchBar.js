@@ -10,6 +10,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { View, TextInput, Pressable, TouchableOpacity, Text } from 'react-native';
+import { Icon } from './Icon';
 
 export const SearchBar = ({
   searchQuery,
@@ -57,6 +58,9 @@ export const SearchBar = ({
         position: 'relative',
       }}
     >
+      <View style={{ marginRight: 8 }}>
+        <Icon name="search" size={16} color="#9CA3AF" />
+      </View>
       <TextInput
         ref={activeInputRef}
         placeholder="Search posts, tasks..."
@@ -83,7 +87,7 @@ export const SearchBar = ({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={{ paddingLeft: 6 }}
         >
-          <Text style={{ color: '#9CA3AF', fontSize: 13, fontWeight: 'bold' }}>✕</Text>
+          <Icon name="x" size={16} color="#9CA3AF" />
         </TouchableOpacity>
       ) : null}
 

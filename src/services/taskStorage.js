@@ -25,7 +25,7 @@ const DEFAULT_POSTS = [
     mediaType: 'image',
     category: 'Work',
     completed: false,
-    reactions: { like: 12, love: 5, laugh: 0 },
+    reactions: { like: 12, love: 5, laugh: 0, wow: 0, sad: 0, angry: 0 },
     shares: 3,
     userReaction: null,
     comments: [
@@ -42,7 +42,7 @@ const DEFAULT_POSTS = [
     mediaType: 'image',
     category: 'Personal',
     completed: true,
-    reactions: { like: 24, love: 18, laugh: 2 },
+    reactions: { like: 24, love: 18, laugh: 2, wow: 1, sad: 0, angry: 0 },
     shares: 8,
     userReaction: 'love',
     comments: [
@@ -59,7 +59,7 @@ const DEFAULT_POSTS = [
     mediaType: 'image',
     category: 'Personal',
     completed: false,
-    reactions: { like: 45, love: 32, laugh: 1 },
+    reactions: { like: 45, love: 32, laugh: 1, wow: 3, sad: 0, angry: 0 },
     shares: 12,
     userReaction: null,
     comments: [

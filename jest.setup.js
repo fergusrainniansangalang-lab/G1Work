@@ -3,6 +3,8 @@
 // Mock Firebase App
 jest.mock('firebase/app', () => ({
   initializeApp: jest.fn(() => ({})),
+  getApps: jest.fn(() => []),
+  getApp: jest.fn(() => ({})),
 }));
 
 // Mock Firebase Auth
@@ -36,6 +38,7 @@ jest.mock('firebase/auth', () => ({
     callback(null);
     return jest.fn(); // unsubscribe
   }),
+  sendPasswordResetEmail: jest.fn(() => Promise.resolve()),
 }));
 
 // Mock Firebase Firestore

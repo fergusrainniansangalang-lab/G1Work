@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { AI } from '../../config/env';
 import { checkDailyQuota } from '../../services/aiClient';
@@ -93,15 +94,22 @@ export const AIChatModal = ({
       transparent={false}
       onRequestClose={onClose}
     >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={headerBg}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1, backgroundColor: bg }}
       >
-        {/* Header */}
+        {/* Header with Safe Area Status Bar Inset */}
         <View
           style={{
-            paddingTop: Platform.OS === 'ios' ? 48 : 16,
-            paddingBottom: 12,
+            paddingTop:
+              Platform.OS === 'ios'
+                ? 52
+                : (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 28),
+            paddingBottom: 14,
             paddingHorizontal: 16,
             backgroundColor: headerBg,
             borderBottomWidth: 1,
@@ -111,7 +119,7 @@ export const AIChatModal = ({
             justifyContent: 'space-between',
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
             <View
               style={{
                 width: 38,
@@ -125,7 +133,7 @@ export const AIChatModal = ({
             >
               <Text style={{ fontSize: 20 }}>✨</Text>
             </View>
-            <View>
+            <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>
                   Meta AI
@@ -144,7 +152,7 @@ export const AIChatModal = ({
                   </Text>
                 </View>
               </View>
-              <Text style={{ fontSize: 11, color: subTextColor }}>
+              <Text style={{ fontSize: 11, color: subTextColor }} numberOfLines={1}>
                 {AI.mode === 'proxy'
                   ? 'Connected via Secure Proxy'
                   : AI.mode === 'direct'
@@ -157,31 +165,54 @@ export const AIChatModal = ({
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity
               onPress={clearChat}
+              accessibilityRole="button"
+              accessibilityLabel="Clear chat messages"
               style={{
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 12,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 14,
                 backgroundColor: inputBg,
-                marginRight: 8,
+                marginRight: 10,
               }}
             >
-              <Text style={{ fontSize: 11, color: subTextColor, fontWeight: '600' }}>
+              <Text style={{ fontSize: 12, color: subTextColor, fontWeight: '600' }}>
                 Clear
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close Meta AI"
+              testID="close-meta-ai-btn"
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              activeOpacity={0.7}
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                backgroundColor: inputBg,
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: isDark ? '#3A3B3C' : '#E4E6EB',
+                borderWidth: 1,
+                borderColor: border,
                 alignItems: 'center',
                 justifyContent: 'center',
+                elevation: 2,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.15,
+                shadowRadius: 2,
               }}
             >
-              <Text style={{ fontSize: 16, color: textColor, fontWeight: 'bold' }}>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: 'bold',
+                  color: textColor,
+                  textAlign: 'center',
+                  includeFontPadding: false,
+                  lineHeight: 20,
+                }}
+              >
                 ✕
               </Text>
             </TouchableOpacity>
